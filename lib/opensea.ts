@@ -4,7 +4,6 @@ const API_KEY = process.env.OPENSEA_API_KEY!
 const BASE = 'https://api.opensea.io/api/v2'
 const CHAIN = process.env.OPENSEA_CHAIN ?? 'ethereum'
 
-/** Accept full OpenSea URLs or bare slugs */
 function extractSlug(raw: string): string {
   try {
     const url = new URL(raw)
@@ -40,16 +39,17 @@ interface OpenSeaListing {
   }
 }
 
-interface GigaverseMetadata {
-  image?: string
-  attributes: Array<{ trait_type: string; value: string | number }>
+interface OpenSeaNft {
+  identifier: string
+  image_url?: string
+  traits: Array<{ trait_type: string; value: string | number }>
 }
 
 function parseTrait<T extends string | number>(
-  attributes: GigaverseMetadata['attributes'],
+  traits: OpenSeaNft['traits'],
   type: string,
 ): T | null {
-  const t = attributes.find((a) => a.trait_type.toLowerCase() === type.toLowerCase())
+  const t = traits.find((a) => a.trait_type.toLowerCase() === type.toLowerCase())
   return t ? (t.value as T) : null
 }
 
@@ -84,40 +84,50 @@ async function fetchAllListings(
   return prices
 }
 
-async function fetchMetadataWithRetry(tokenId: string): Promise<GigaverseMetadata | null> {
-  const url = `https://gigaverse.io/api/roms/metadatav2/${tokenId}`
-  const headers = { accept: 'application/json', 'user-agent': 'GigaverseHub.com' }
+// Fetches all NFTs from the contract in pages of 200.
+// Stops early once every listed token has been found.
+async function fetchNftTraits(
+  listedIds: Set<string>,
+): Promise<Map<string, OpenSeaNft>> {
+  const nfts = new Map<string, OpenSeaNft>()
+  let cursor: string | null = null
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, { headers })
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)))
-        continue
+  do {
+    const qs = cursor ? `?limit=200&next=${encodeURIComponent(cursor)}` : '?limit=200'
+    let res: Response | null = null
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(`${BASE}/chain/${CHAIN}/contract/${CONTRACT}/nfts${qs}`, {
+          headers: osHeaders,
+        })
+        if (res.status === 429) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)))
+          res = null
+          continue
+        }
+        break
+      } catch {
+        // network error — retry
       }
-      if (!res.ok) return null
-      return (await res.json()) as GigaverseMetadata
-    } catch {
-      // network error — retry
     }
-  }
-  return null
-}
 
-async function fetchNftTraits(tokenIds: string[]): Promise<Map<string, GigaverseMetadata>> {
-  const nfts = new Map<string, GigaverseMetadata>()
-  const BATCH = 10
+    if (!res?.ok) break
 
-  for (let i = 0; i < tokenIds.length; i += BATCH) {
-    const batch = tokenIds.slice(i, i + BATCH)
-    const results = await Promise.all(batch.map((id) => fetchMetadataWithRetry(id)))
-    results.forEach((data, idx) => {
-      if (data) nfts.set(batch[idx], data)
-    })
-    if (i + BATCH < tokenIds.length) {
-      await new Promise((r) => setTimeout(r, 50))
+    const data = (await res.json()) as { nfts: OpenSeaNft[]; next: string | null }
+
+    for (const nft of data.nfts) {
+      if (listedIds.has(nft.identifier)) {
+        nfts.set(nft.identifier, nft)
+      }
     }
-  }
+
+    cursor = data.next ?? null
+
+    if (nfts.size >= listedIds.size) break
+
+    if (cursor) await new Promise((r) => setTimeout(r, 600))
+  } while (cursor)
 
   return nfts
 }
@@ -127,25 +137,19 @@ export async function fetchRomListings(ethUsd: number): Promise<RomListing[]> {
   const tokenIds = Array.from(priceMap.keys())
   if (tokenIds.length === 0) return []
 
-  const nftMap = await fetchNftTraits(tokenIds)
+  const nftMap = await fetchNftTraits(new Set(tokenIds))
   const listings: RomListing[] = []
 
   for (const [tokenId, price] of priceMap) {
     const nft = nftMap.get(tokenId)
     if (!nft) continue
 
-    const tier = parseTrait<string>(nft.attributes, 'tier')?.toUpperCase() as Tier | null
-    const faction = parseTrait<string>(nft.attributes, 'faction')?.toUpperCase() as Faction | null
-    // Memory comes back as "8MB" / "64MB" — strip the unit
-    const memoryRaw = parseTrait<string>(nft.attributes, 'memory')
+    const tier = parseTrait<string>(nft.traits, 'tier')?.toUpperCase() as Tier | null
+    const faction = parseTrait<string>(nft.traits, 'faction')?.toUpperCase() as Faction | null
+    const memoryRaw = parseTrait<string>(nft.traits, 'memory')
     const memory = memoryRaw ? (parseInt(memoryRaw, 10) as MemoryMb) : null
 
     if (!tier || !faction || memory == null || isNaN(memory)) continue
-
-    let imageUrl: string | undefined = nft.image
-    if (imageUrl?.startsWith('ipfs://')) {
-      imageUrl = `https://ipfs.io/ipfs/${imageUrl.slice(7)}`
-    }
 
     listings.push({
       tokenId,
@@ -155,7 +159,7 @@ export async function fetchRomListings(ethUsd: number): Promise<RomListing[]> {
       priceEth: price.priceEth,
       priceUsd: price.priceUsd,
       openseaUrl: `https://opensea.io/assets/${CHAIN}/${CONTRACT}/${tokenId}`,
-      imageUrl,
+      imageUrl: nft.image_url,
     })
   }
 

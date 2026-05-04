@@ -27,7 +27,7 @@ function extractSlug(raw: string): string {
 const COLLECTION_SLUG = extractSlug(
   process.env.OPENSEA_GIGLINGS_COLLECTION_SLUG ?? 'gigaverse-giglings',
 )
-const ENV_CONTRACT = process.env.OPENSEA_GIGLINGS_CONTRACT_ADDRESS ?? null
+const CONTRACT = process.env.OPENSEA_GIGLINGS_CONTRACT_ADDRESS ?? null
 
 const osHeaders = {
   'x-api-key': API_KEY,
@@ -47,6 +47,17 @@ interface OpenSeaListing {
       offer: Array<{ token: string; identifierOrCriteria: string }>
     }
   }
+}
+
+interface OpenSeaNft {
+  identifier: string
+  image_url?: string
+  traits: Array<{ trait_type: string; value: string | number }>
+}
+
+function parseTrait(traits: OpenSeaNft['traits'], type: string): string | null {
+  const attr = traits.find((a) => a.trait_type.toLowerCase() === type.toLowerCase())
+  return attr != null ? String(attr.value) : null
 }
 
 async function fetchAllListings(ethUsd: number): Promise<{
@@ -81,41 +92,52 @@ async function fetchAllListings(ethUsd: number): Promise<{
   return { prices }
 }
 
-interface GigaverseMetadata {
-  name?: string
-  image?: string
-  attributes?: Array<{ trait_type: string; value: string | number }>
-}
+// Fetches all NFTs from the contract in pages of 200.
+// Stops early once every listed token has been found.
+async function fetchNftTraits(listedIds: Set<string>): Promise<Map<string, OpenSeaNft>> {
+  if (!CONTRACT) return new Map()
 
-function parseTrait(
-  attributes: GigaverseMetadata['attributes'],
-  type: string,
-): string | null {
-  if (!attributes) return null
-  const attr = attributes.find(
-    (a) => a.trait_type.toLowerCase() === type.toLowerCase(),
-  )
-  return attr != null ? String(attr.value) : null
-}
+  const nfts = new Map<string, OpenSeaNft>()
+  let cursor: string | null = null
 
-async function fetchGigaverseMetadata(tokenId: string): Promise<GigaverseMetadata | null> {
-  const url = `https://gigaverse.io/api/pets/metadatav2/${tokenId}`
-  const headers = { accept: 'application/json', 'user-agent': 'GigaverseHub.com' }
+  do {
+    const qs = cursor ? `?limit=200&next=${encodeURIComponent(cursor)}` : '?limit=200'
+    let res: Response | null = null
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, { headers })
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)))
-        continue
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(`${BASE}/chain/${CHAIN}/contract/${CONTRACT}/nfts${qs}`, {
+          headers: osHeaders,
+        })
+        if (res.status === 429) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)))
+          res = null
+          continue
+        }
+        break
+      } catch {
+        // network error — retry
       }
-      if (!res.ok) return null
-      return (await res.json()) as GigaverseMetadata
-    } catch {
-      // network error — retry
     }
-  }
-  return null
+
+    if (!res?.ok) break
+
+    const data = (await res.json()) as { nfts: OpenSeaNft[]; next: string | null }
+
+    for (const nft of data.nfts) {
+      if (listedIds.has(nft.identifier)) {
+        nfts.set(nft.identifier, nft)
+      }
+    }
+
+    cursor = data.next ?? null
+
+    if (nfts.size >= listedIds.size) break
+
+    if (cursor) await new Promise((r) => setTimeout(r, 600))
+  } while (cursor)
+
+  return nfts
 }
 
 const VALID_FACTIONS = new Set<string>([
@@ -128,72 +150,53 @@ export async function fetchGiglingListings(ethUsd: number): Promise<GiglingListi
   const tokenIds = Array.from(prices.keys())
   if (tokenIds.length === 0) return []
 
-  const BATCH = 8
+  const nftMap = await fetchNftTraits(new Set(tokenIds))
   const listings: GiglingListing[] = []
 
-  for (let i = 0; i < tokenIds.length; i += BATCH) {
-    const batch = tokenIds.slice(i, i + BATCH)
-    const results = await Promise.all(
-      batch.map(async (tokenId): Promise<GiglingListing | null> => {
-        const price = prices.get(tokenId)!
-        const meta = await fetchGigaverseMetadata(tokenId)
-        if (!meta) return null
+  for (const [tokenId, price] of prices) {
+    const nft = nftMap.get(tokenId)
+    if (!nft) continue
 
-        const stateRaw = parseTrait(meta.attributes, 'State')
-        if (!stateRaw || (stateRaw !== 'Pet' && stateRaw !== 'Egg')) return null
-        const state: GiglingState = stateRaw === 'Pet' ? 'PET' : 'EGG'
+    const stateRaw = parseTrait(nft.traits, 'State')
+    if (!stateRaw || (stateRaw !== 'Pet' && stateRaw !== 'Egg')) continue
+    const state: GiglingState = stateRaw === 'Pet' ? 'PET' : 'EGG'
 
-        const rarityRaw = parseTrait(meta.attributes, 'Rarity')
-        const rarity: GiglingRarity | undefined = rarityRaw
-          ? RARITY_BY_NUMBER[rarityRaw]
-          : undefined
+    const rarityRaw = parseTrait(nft.traits, 'Rarity')
+    const rarity: GiglingRarity | undefined = rarityRaw
+      ? RARITY_BY_NUMBER[rarityRaw]
+      : undefined
 
-        // Pets must have a valid rarity; eggs derive type from "Egg Type" trait instead
-        if (state === 'PET' && !rarity) return null
+    if (state === 'PET' && !rarity) continue
 
-        const eggTypeRaw = parseTrait(meta.attributes, 'Egg Type')
-        const eggType: EggType | undefined =
-          state === 'EGG' && eggTypeRaw ? EGG_TYPE_BY_STRING[eggTypeRaw] : undefined
+    const eggTypeRaw = parseTrait(nft.traits, 'Egg Type')
+    const eggType: EggType | undefined =
+      state === 'EGG' && eggTypeRaw ? EGG_TYPE_BY_STRING[eggTypeRaw] : undefined
 
-        if (state === 'EGG' && !eggType) return null
+    if (state === 'EGG' && !eggType) continue
 
-        const factionRaw = parseTrait(meta.attributes, 'Faction')?.toUpperCase() ?? 'NONE'
-        const faction: GiglingFaction = VALID_FACTIONS.has(factionRaw)
-          ? (factionRaw as GiglingFaction)
-          : 'NONE'
+    const factionRaw = parseTrait(nft.traits, 'Faction')?.toUpperCase() ?? 'NONE'
+    const faction: GiglingFaction = VALID_FACTIONS.has(factionRaw)
+      ? (factionRaw as GiglingFaction)
+      : 'NONE'
 
-        const genderRaw = parseTrait(meta.attributes, 'Gender')?.toUpperCase()
-        const gender: GiglingGender | undefined =
-          genderRaw && VALID_GENDERS.has(genderRaw)
-            ? (genderRaw as GiglingGender)
-            : undefined
+    const genderRaw = parseTrait(nft.traits, 'Gender')?.toUpperCase()
+    const gender: GiglingGender | undefined =
+      genderRaw && VALID_GENDERS.has(genderRaw)
+        ? (genderRaw as GiglingGender)
+        : undefined
 
-        let imageUrl: string | undefined = meta.image || undefined
-        if (imageUrl?.startsWith('ipfs://')) {
-          imageUrl = `https://ipfs.io/ipfs/${imageUrl.slice(7)}`
-        }
-
-        return {
-          tokenId,
-          state,
-          rarity,
-          faction,
-          gender,
-          eggType,
-          priceEth: price.priceEth,
-          priceUsd: price.priceUsd,
-          openseaUrl: `https://opensea.io/assets/${CHAIN}/${ENV_CONTRACT}/${tokenId}`,
-          imageUrl,
-        }
-      }),
-    )
-
-    for (const r of results) {
-      if (r) listings.push(r)
-    }
-    if (i + BATCH < tokenIds.length) {
-      await new Promise((r) => setTimeout(r, 100))
-    }
+    listings.push({
+      tokenId,
+      state,
+      rarity,
+      faction,
+      gender,
+      eggType,
+      priceEth: price.priceEth,
+      priceUsd: price.priceUsd,
+      openseaUrl: `https://opensea.io/assets/${CHAIN}/${CONTRACT}/${tokenId}`,
+      imageUrl: nft.image_url,
+    })
   }
 
   return listings

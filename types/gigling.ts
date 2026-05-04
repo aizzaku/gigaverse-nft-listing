@@ -81,7 +81,7 @@ export const BASE_OUTPUT_RATE: Record<GiglingRarity, number> = {
   EPIC: 2,
   LEGENDARY: 2,
   RELIC: 3,
-  GIGA: 4,
+  GIGA: 3,
 }
 
 /**
