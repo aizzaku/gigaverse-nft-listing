@@ -111,6 +111,12 @@ export interface GiglingListing {
   priceUsd: number
   openseaUrl: string
   imageUrl?: string
+  /** Off-chain egg hatching progress (0–100). undefined when egg is not hatching. */
+  progress?: number
+  /** Off-chain egg quality score (0–100). API calls this "Rarity" on eggs. */
+  quality?: number
+  /** Off-chain fate probabilities keyed by uppercase faction name. Only present when progress = 100. */
+  fate?: Record<string, number>
 }
 
 export interface GiglingListingsResponse {

@@ -99,6 +99,59 @@ function OpenSeaIcon() {
   )
 }
 
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="flex flex-col gap-[5px] min-w-[72px]">
+      <span className="font-bitcell text-[15px] tabular-nums" style={{ color: '#e0e0e0' }}>
+        {value}%
+      </span>
+      <div style={{ height: 5, backgroundColor: '#0c2030', width: '100%' }}>
+        <div style={{ height: '100%', width: `${value}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  )
+}
+
+function FateBar({ fate }: { fate: Record<string, number> }) {
+  const segments = Object.entries(fate)
+    .filter(([, pct]) => pct > 0)
+    .sort(([, a], [, b]) => b - a)
+
+  if (segments.length === 0) {
+    return <span className="font-bitcell text-[16px]" style={{ color: '#3a4a5e' }}>—</span>
+  }
+
+  return (
+    <div className="flex flex-col gap-[5px] min-w-[120px]">
+      <div style={{ height: 5, display: 'flex', width: '100%', overflow: 'hidden' }}>
+        {segments.map(([faction, pct]) => (
+          <div
+            key={faction}
+            title={`${faction.charAt(0) + faction.slice(1).toLowerCase()}: ${pct}%`}
+            style={{
+              height: '100%',
+              width: `${pct}%`,
+              backgroundColor: FACTION_COLORS[faction as GiglingFaction] ?? '#3a4a5e',
+            }}
+          />
+        ))}
+        <div style={{ height: '100%', flex: 1, backgroundColor: '#0c2030' }} />
+      </div>
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+        {segments.map(([faction, pct]) => (
+          <span
+            key={faction}
+            className="font-bitcell text-[10px] uppercase tracking-[0.5px]"
+            style={{ color: FACTION_COLORS[faction as GiglingFaction] ?? '#3a4a5e' }}
+          >
+            {faction.charAt(0) + faction.slice(1).toLowerCase()} {pct}%
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function OutputCell({ gigling }: { gigling: GiglingListing }) {
   if (gigling.state === 'EGG') {
     return (
@@ -227,6 +280,30 @@ export function GiglingTable({ listings, ethUsd, variant }: Props) {
                     </span>
                   </th>
                 )}
+                {/* progress — Eggs only */}
+                {variant === 'EGGS' && (
+                  <th style={thBase} className="text-left">
+                    <span className="font-bitcell text-[14px] uppercase tracking-[1.5px]" style={{ color: '#7a8a9e' }}>
+                      Progress
+                    </span>
+                  </th>
+                )}
+                {/* quality — Eggs only */}
+                {variant === 'EGGS' && (
+                  <th style={thBase} className="text-left">
+                    <span className="font-bitcell text-[14px] uppercase tracking-[1.5px]" style={{ color: '#7a8a9e' }}>
+                      Quality
+                    </span>
+                  </th>
+                )}
+                {/* fate — Eggs only */}
+                {variant === 'EGGS' && (
+                  <th style={thBase} className="text-left">
+                    <span className="font-bitcell text-[14px] uppercase tracking-[1.5px]" style={{ color: '#7a8a9e' }}>
+                      Fate
+                    </span>
+                  </th>
+                )}
                 {/* price ETH */}
                 <th style={thBase} className="text-left">
                   <SortButton
@@ -257,7 +334,7 @@ export function GiglingTable({ listings, ethUsd, variant }: Props) {
             <tbody>
               {pageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={variant === 'STEEDS' ? 9 : 6} style={{ ...tdBase, textAlign: 'center', padding: '48px 12px' }}>
+                  <td colSpan={9} style={{ ...tdBase, textAlign: 'center', padding: '48px 12px' }}>
                     <span className="font-bitcell text-[13px] uppercase tracking-[2px]"
                       style={{ color: '#7a8a9e' }}>
                       No listings match current filters
@@ -339,6 +416,39 @@ export function GiglingTable({ listings, ethUsd, variant }: Props) {
                           >
                             {gigling.gender ?? '—'}
                           </span>
+                        </td>
+                      )}
+
+                      {/* progress — Eggs only */}
+                      {variant === 'EGGS' && (
+                        <td style={tdBase}>
+                          {gigling.progress !== undefined ? (
+                            <ProgressBar value={gigling.progress} color="#02C7D7" />
+                          ) : (
+                            <span className="font-bitcell text-[16px]" style={{ color: '#3a4a5e' }}>—</span>
+                          )}
+                        </td>
+                      )}
+
+                      {/* quality — Eggs only */}
+                      {variant === 'EGGS' && (
+                        <td style={tdBase}>
+                          {gigling.quality !== undefined ? (
+                            <ProgressBar value={gigling.quality} color="#F5C563" />
+                          ) : (
+                            <span className="font-bitcell text-[16px]" style={{ color: '#3a4a5e' }}>—</span>
+                          )}
+                        </td>
+                      )}
+
+                      {/* fate — Eggs only */}
+                      {variant === 'EGGS' && (
+                        <td style={tdBase}>
+                          {gigling.fate ? (
+                            <FateBar fate={gigling.fate} />
+                          ) : (
+                            <span className="font-bitcell text-[16px]" style={{ color: '#3a4a5e' }}>—</span>
+                          )}
                         </td>
                       )}
 
