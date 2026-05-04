@@ -66,7 +66,7 @@ export function RomListingsClient({ data }: Props) {
     <div className="min-h-screen bg-giga-navy">
       <Nav />
 
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-5">
         {/* Header */}
         <div className="space-y-1.5">
           <h1 className="font-bitcell text-[24px] uppercase tracking-[3px] text-giga-gold">
