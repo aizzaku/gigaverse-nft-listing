@@ -1,26 +1,202 @@
+/* ── VT323 fallback from Google (must be before other @imports in CSS spec) ── */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Scan design-system dist so Tailwind generates all classes it uses ── */
+@source "../node_modules/@gigaverse/ui/dist/index.js";
+
+/* ── Explicit safelist for data-attribute variants used by Pixel components ── */
+/* (Turbopack may not process @source for node_modules; inline forces generation) */
+@source inline("
+  bg-giga-panel/70 bg-giga-panel/50 bg-giga-card/80
+  border-giga-teal/50 border-giga-teal/20 border-giga-gold/40 border-giga-gold/60
+  text-giga-button-text
+  data-[state=checked]:bg-giga-gold-grad
+  data-[state=checked]:border-giga-gold
+  data-[state=checked]:text-giga-button-text
+  data-[state=checked]:translate-x-[22px]
+  data-[state=unchecked]:translate-x-0.5
+  data-[state=active]:bg-giga-dark-card
+  data-[state=active]:text-giga-gold
+  data-[state=open]:bg-giga-teal/20
+  data-[state=open]:bg-giga-dark-card
+  data-[state=open]:text-giga-gold
+");
+
+/* ── Custom pixel fonts (drop Bitcell.woff2 + m5x7.woff2 into /public/fonts/) ── */
+@font-face {
+  font-family: 'Bitcell';
+  src: url('/fonts/Bitcell.woff2') format('woff2'),
+       url('/fonts/Bitcell.ttf')   format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'm5x7';
+  src: url('/fonts/m5x7.woff2') format('woff2'),
+       url('/fonts/m5x7.ttf')   format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Keyframes ── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes progressGlow {
+  0%, 100% { box-shadow: 0 0 8px  rgba(245,197,99,0.4); }
+  50%       { box-shadow: 0 0 18px rgba(245,197,99,0.7); }
+}
+@keyframes gigaPulse {
+  0%, 100% { opacity: 1;    }
+  50%       { opacity: 0.55; }
+}
+@keyframes pingpong {
+  0%   { transform: translateX(0);   }
+  33%  { transform: translateX(18px); }
+  50%  { transform: translateX(36px); }
+  66%  { transform: translateX(54px); }
+  83%  { transform: translateX(54px); }
+  90%  { transform: translateX(36px); }
+  95%  { transform: translateX(18px); }
+  100% { transform: translateX(0);   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* ── Core palette ── */
+  --color-giga-navy:        #060b14;
+  --color-giga-panel:       #081420;
+  --color-giga-card:        #0a1e2e;
+  --color-giga-dark-card:   #070d18;
+  --color-giga-overlay:     #02060c;
+  --color-giga-border-dark: #0c2030;
+  --color-giga-border:      #0483ab33;
+
+  --color-giga-heading:     #e0e0e0;
+  --color-giga-muted:       #7a8a9e;
+  --color-giga-button-text: #3a1e00;
+
+  --color-giga-gold:        #F5C563;
+  --color-giga-gold-light:  #F5D06B;
+  --color-giga-gold-dark:   #E89B0C;
+  --color-giga-teal:        #0483AB;
+  --color-giga-cyan:        #02C7D7;
+  --color-giga-green:       #3dd94e;
+  --color-giga-green-light: #78FD95;
+  --color-giga-sky:         #4FC3F7;
+  --color-giga-lavender:    #CC86CB;
+  --color-giga-live:        #ff7a7a;
+  --color-giga-live-bg:     #5a1111;
+  --color-giga-live-text:   #ffb2b2;
+
+  /* ── Faction colors ── */
+  --color-faction-archon:         #0383AC;
+  --color-faction-archon-light:   #88FFEB;
+  --color-faction-athena:         #9026CD;
+  --color-faction-athena-light:   #CC86CB;
+  --color-faction-chobo:          #C7DCD0;
+  --color-faction-chobo-light:    #FFFFFF;
+  --color-faction-crusader:       #C32454;
+  --color-faction-crusader-light: #FA4D4D;
+  --color-faction-foxglove:       #229062;
+  --color-faction-foxglove-light: #78FD95;
+  --color-faction-overseer:       #EB4F36;
+  --color-faction-overseer-light: #EB8575;
+  --color-faction-summoner:       #FEC733;
+  --color-faction-summoner-light: #FFE066;
+  --color-faction-gigus:          #562344;
+  --color-faction-gigus-light:    #A85E8E;
+
+  /* ── Rarity colors ── */
+  --color-rarity-common:    #E6E6E6;
+  --color-rarity-uncommon:  #4DCC4D;
+  --color-rarity-rare:      #4D4DFF;
+  --color-rarity-epic:      #CC33CC;
+  --color-rarity-legendary: #FFCC00;
+  --color-rarity-relic:     #CC4D00;
+  --color-rarity-giga:      #FFCC33;
+
+  /* ── Shadows ── */
+  --shadow-giga-bevel:     inset 0 1px 0 rgba(255,245,204,0.45), 0 2px 0 0 rgba(0,0,0,0.4);
+  --shadow-giga-pip-gold:  0 0 10px rgba(245,197,99,0.5);
+  --shadow-giga-pip-cyan:  0 0 10px rgba(2,199,215,0.45);
+  --shadow-giga-pip-green: 0 0 10px rgba(61,217,78,0.45);
+  --shadow-giga-pip-live:  0 0 10px rgba(255,122,122,0.5);
+
+  /* ── Animations ── */
+  --animate-giga-shimmer:  shimmer 2.8s ease-in-out infinite;
+  --animate-giga-glow:     progressGlow 2s ease-in-out infinite;
+  --animate-giga-pulse:    gigaPulse 1.6s ease-in-out infinite;
+  --animate-giga-pingpong: pingpong 1.2s ease-in-out infinite;
+}
+
+/* ── Explicit utilities for design system class names ── */
+/* (Tailwind v4 won't scan node_modules, so we force-define these) */
+@layer utilities {
+  .font-bitcell { font-family: 'Bitcell', 'VT323', monospace; }
+  .font-m5x7    { font-family: 'm5x7',    'VT323', monospace; }
+  .font-vt323   { font-family: 'VT323', monospace; }
+
+  .bg-giga-gold-grad {
+    background-image: linear-gradient(180deg, #ffe070 0%, #f0c040 48%, #d8a020 52%, #c08010 100%);
   }
+  .bg-giga-gold-accept-grad {
+    background-image: linear-gradient(180deg, #F5D06B 0%, #E89B0C 100%);
+  }
+  .bg-giga-progress-grad {
+    background-image: linear-gradient(90deg, #F5C563, #0483AB);
+  }
+  .bg-giga-shimmer {
+    background-image: linear-gradient(
+      120deg,
+      transparent 30%,
+      rgba(255,255,255,0.25) 48%,
+      rgba(255,255,255,0.35) 50%,
+      rgba(255,255,255,0.25) 52%,
+      transparent 70%
+    );
+  }
+
+  .shadow-giga-bevel {
+    box-shadow: inset 0 1px 0 rgba(255,245,204,0.45), 0 2px 0 0 rgba(0,0,0,0.4);
+  }
+  .shadow-giga-pip-gold  { box-shadow: 0 0 10px rgba(245,197,99,0.5); }
+  .shadow-giga-pip-cyan  { box-shadow: 0 0 10px rgba(2,199,215,0.45); }
+  .shadow-giga-pip-green { box-shadow: 0 0 10px rgba(61,217,78,0.45); }
+  .shadow-giga-pip-live  { box-shadow: 0 0 10px rgba(255,122,122,0.5); }
+
+  .animate-giga-shimmer  { animation: shimmer      2.8s ease-in-out infinite; }
+  .animate-giga-progress-glow { animation: progressGlow 2s ease-in-out infinite; }
+  .animate-giga-pulse    { animation: gigaPulse    1.6s ease-in-out infinite; }
+  .animate-giga-pingpong { animation: pingpong     1.2s ease-in-out infinite; }
+
+  /* ring-offset colour used by focus-visible */
+  .ring-offset-giga-navy { --tw-ring-offset-color: #060b14; }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Base ── */
+html, body {
+  min-height: 100vh;
+  background-color: #060b14;
+  color: #e0e0e0;
+  font-family: 'Bitcell', 'VT323', monospace;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
 }
+
+* { border-color: rgba(4,131,171,0.2); }
+
+.image-pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar        { width: 8px; height: 8px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #1a3a4a; border-radius: 4px; }
