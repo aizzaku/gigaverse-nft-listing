@@ -82,22 +82,22 @@ export function GiglingListingsClient({ data, variant }: Props) {
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-5">
         {/* Header */}
         <div className="space-y-1.5">
-          <h1 className="font-bitcell text-[20px] uppercase tracking-[3px] text-giga-gold">
+          <h1 className="font-bitcell text-[24px] uppercase tracking-[3px] text-giga-gold">
             {TITLES[variant]}
           </h1>
           <p
-            className="font-bitcell text-[10px] uppercase tracking-[1px]"
+            className="font-bitcell text-[11px] uppercase tracking-[1px]"
             style={{ color: '#7a8a9e', maxWidth: '760px', lineHeight: '1.8' }}
           >
             {SUBTITLES[variant]}
           </p>
-          <p className="font-bitcell text-[10px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
+          <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
             Updated {lastUpdatedFormatted}
           </p>
         </div>
 
         <div className="space-y-2">
-          <span className="font-bitcell text-[10px] uppercase tracking-[2px]" style={{ color: '#e0e0e0' }}>
+          <span className="font-bitcell text-[12px] uppercase tracking-[2px]" style={{ color: '#e0e0e0' }}>
             Filters
           </span>
           <GiglingFilterBar filters={filters} onFiltersChange={setFilters} variant={variant} />

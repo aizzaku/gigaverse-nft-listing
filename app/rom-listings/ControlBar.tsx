@@ -24,13 +24,13 @@ function BoostSwitch({
       <PixelSwitch checked={checked} onCheckedChange={onCheckedChange} />
       <div className="flex flex-col leading-none gap-[3px]">
         <span
-          className="font-bitcell text-[12px] uppercase tracking-[1.5px]"
+          className="font-bitcell text-[13px] uppercase tracking-[1.5px]"
           style={{ color: checked ? '#F5C563' : '#e0e0e0' }}
         >
           {label}
         </span>
         <span
-          className="font-bitcell text-[10px] uppercase tracking-[1px]"
+          className="font-bitcell text-[11px] uppercase tracking-[1px]"
           style={{ color: checked ? '#F5C563' : '#7a8a9e' }}
         >
           {description}

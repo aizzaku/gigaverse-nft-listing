@@ -96,7 +96,7 @@ function BadgeGroup<T extends string>({
   return (
     <div className="flex items-center gap-3 flex-wrap">
       <span
-        className="font-bitcell text-[10px] uppercase tracking-[1.5px] mr-0.5"
+        className="font-bitcell text-[12px] uppercase tracking-[1.5px] mr-0.5"
         style={{ color: '#e0e0e0' }}
       >
         {label}
@@ -112,7 +112,7 @@ function BadgeGroup<T extends string>({
           <button
             key={String(opt)}
             onClick={() => toggle(opt)}
-            className="relative px-2 py-0.5 border-y-[3px] font-bitcell text-[11px] uppercase tracking-[0.5px] transition-all"
+            className="relative px-2.5 py-1 border-y-[3px] font-bitcell text-[13px] uppercase tracking-[0.5px] transition-all"
             style={{
               backgroundColor: active ? `${color}18` : 'transparent',
               color: active ? color : '#2e3e52',

@@ -69,25 +69,25 @@ export function RomListingsClient({ data }: Props) {
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-5">
         {/* Header */}
         <div className="space-y-1.5">
-          <h1 className="font-bitcell text-[20px] uppercase tracking-[3px] text-giga-gold">
+          <h1 className="font-bitcell text-[24px] uppercase tracking-[3px] text-giga-gold">
             Gigaverse ROMs
           </h1>
           <p
-            className="font-bitcell text-[10px] uppercase tracking-[1px]"
+            className="font-bitcell text-[11px] uppercase tracking-[1px]"
             style={{ color: '#7a8a9e', maxWidth: '760px', lineHeight: '1.8' }}
           >
             The premier assets of Gigaverse ecosystem. ROMs generate extra energy and exclusive
             faction materials (shards and dust). There are 4 rarities of ROMs — Silver, Gold, Void
             and Giga — with different types of Memory that result in production output.
           </p>
-          <p className="font-bitcell text-[10px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
+          <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
             Updated {lastUpdatedFormatted}
           </p>
         </div>
 
         {/* Filters */}
         <div className="space-y-2">
-          <span className="font-bitcell text-[10px] uppercase tracking-[2px]" style={{ color: '#e0e0e0' }}>
+          <span className="font-bitcell text-[12px] uppercase tracking-[2px]" style={{ color: '#e0e0e0' }}>
             Filters
           </span>
           <FilterBar filters={filters} onChange={setFilters} />
@@ -103,7 +103,7 @@ export function RomListingsClient({ data }: Props) {
             style={{ borderColor: '#0483AB1a' }}
             aria-hidden
           />
-          <div className="font-bitcell text-[11px] uppercase tracking-[1px] space-y-1" style={{ color: '#7a8a9e' }}>
+          <div className="font-bitcell text-[12px] uppercase tracking-[1px] space-y-1" style={{ color: '#7a8a9e' }}>
             <p>Energy Eff = Weekly energy ÷ price ETH &nbsp;|&nbsp; Shard Eff = Weekly shards ÷ price ETH &nbsp;|&nbsp; Dust Eff = Weekly dust ÷ price ETH</p>
             {(settings.linked || settings.juiced) && (
               <p style={{ color: '#F5C563' }}>
