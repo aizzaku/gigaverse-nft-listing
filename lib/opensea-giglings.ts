@@ -99,16 +99,23 @@ function parseTrait(
 }
 
 async function fetchGigaverseMetadata(tokenId: string): Promise<GigaverseMetadata | null> {
-  try {
-    const res = await fetch(
-      `https://gigaverse.io/api/pets/metadatav2/${tokenId}`,
-      { headers: { accept: 'application/json', 'user-agent': 'GigaverseHub.com' } },
-    )
-    if (!res.ok) return null
-    return (await res.json()) as GigaverseMetadata
-  } catch {
-    return null
+  const url = `https://gigaverse.io/api/pets/metadatav2/${tokenId}`
+  const headers = { accept: 'application/json', 'user-agent': 'GigaverseHub.com' }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { headers })
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)))
+        continue
+      }
+      if (!res.ok) return null
+      return (await res.json()) as GigaverseMetadata
+    } catch {
+      // network error — retry
+    }
   }
+  return null
 }
 
 const VALID_FACTIONS = new Set<string>([
@@ -121,7 +128,7 @@ export async function fetchGiglingListings(ethUsd: number): Promise<GiglingListi
   const tokenIds = Array.from(prices.keys())
   if (tokenIds.length === 0) return []
 
-  const BATCH = 20
+  const BATCH = 8
   const listings: GiglingListing[] = []
 
   for (let i = 0; i < tokenIds.length; i += BATCH) {
@@ -183,6 +190,9 @@ export async function fetchGiglingListings(ethUsd: number): Promise<GiglingListi
 
     for (const r of results) {
       if (r) listings.push(r)
+    }
+    if (i + BATCH < tokenIds.length) {
+      await new Promise((r) => setTimeout(r, 100))
     }
   }
 

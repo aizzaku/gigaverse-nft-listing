@@ -84,26 +84,39 @@ async function fetchAllListings(
   return prices
 }
 
+async function fetchMetadataWithRetry(tokenId: string): Promise<GigaverseMetadata | null> {
+  const url = `https://gigaverse.io/api/roms/metadatav2/${tokenId}`
+  const headers = { accept: 'application/json', 'user-agent': 'GigaverseHub.com' }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { headers })
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)))
+        continue
+      }
+      if (!res.ok) return null
+      return (await res.json()) as GigaverseMetadata
+    } catch {
+      // network error — retry
+    }
+  }
+  return null
+}
+
 async function fetchNftTraits(tokenIds: string[]): Promise<Map<string, GigaverseMetadata>> {
   const nfts = new Map<string, GigaverseMetadata>()
-  const BATCH = 30
+  const BATCH = 10
 
   for (let i = 0; i < tokenIds.length; i += BATCH) {
     const batch = tokenIds.slice(i, i + BATCH)
-    await Promise.all(
-      batch.map(async (tokenId) => {
-        try {
-          const res = await fetch(`https://gigaverse.io/api/roms/metadatav2/${tokenId}`, {
-            headers: { accept: 'application/json', 'user-agent': 'GigaverseHub.com' },
-          })
-          if (!res.ok) return
-          const data = (await res.json()) as GigaverseMetadata
-          nfts.set(tokenId, data)
-        } catch {
-          // skip individual failures
-        }
-      }),
-    )
+    const results = await Promise.all(batch.map((id) => fetchMetadataWithRetry(id)))
+    results.forEach((data, idx) => {
+      if (data) nfts.set(batch[idx], data)
+    })
+    if (i + BATCH < tokenIds.length) {
+      await new Promise((r) => setTimeout(r, 50))
+    }
   }
 
   return nfts
