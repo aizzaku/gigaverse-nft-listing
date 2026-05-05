@@ -152,6 +152,42 @@ function FateBar({ fate }: { fate: Record<string, number> }) {
   )
 }
 
+function PageJumper({ totalPages, onJump }: { totalPages: number; onJump: (p: number) => void }) {
+  const [val, setVal] = useState('')
+
+  function commit() {
+    const n = parseInt(val, 10)
+    if (!isNaN(n) && n >= 1 && n <= totalPages) onJump(n)
+    setVal('')
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-bitcell text-[12px] uppercase tracking-[1.5px]" style={{ color: '#7a8a9e' }}>
+        Go
+      </span>
+      <div className="relative border-y-[3px]" style={{ borderColor: '#0483AB66' }}>
+        <span
+          className="absolute inset-0 pointer-events-none -mx-[3px] border-x-[3px]"
+          style={{ borderColor: '#0483AB66' }}
+          aria-hidden
+        />
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && commit()}
+          placeholder={String(totalPages)}
+          className="font-bitcell text-[13px] bg-transparent px-2 py-0.5 w-14 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          style={{ color: '#e0e0e0' }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function OutputCell({ gigling }: { gigling: GiglingListing }) {
   if (gigling.state === 'EGG') {
     return (
@@ -509,6 +545,7 @@ export function GiglingTable({ listings, ethUsd, variant }: Props) {
             {sorted.length} Listings · Page {currentPage}/{totalPages}
           </span>
 
+          <div className="flex items-center gap-3">
           <PixelPagination>
             <PixelPaginationContent>
               <PixelPaginationItem>
@@ -560,6 +597,8 @@ export function GiglingTable({ listings, ethUsd, variant }: Props) {
               </PixelPaginationItem>
             </PixelPaginationContent>
           </PixelPagination>
+          <PageJumper totalPages={totalPages} onJump={setPage} />
+          </div>
         </div>
       )}
     </div>
