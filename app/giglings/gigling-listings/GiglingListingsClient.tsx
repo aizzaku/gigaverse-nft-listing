@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { ArrowClockwise } from '@phosphor-icons/react'
 import type {
   GiglingListingsResponse,
   GiglingRarity,
@@ -45,7 +46,11 @@ interface Props {
 }
 
 export function GiglingListingsClient({ data, variant }: Props) {
-  const { listings, ethUsd, lastUpdated } = data
+  const [listings, setListings] = useState(data.listings)
+  const [ethUsd, setEthUsd] = useState(data.ethUsd)
+  const [lastUpdated, setLastUpdated] = useState(data.lastUpdated)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
 
   const [filters, setFilters] = useState<GiglingActiveFilters>({
     rarities: [...GIGLING_RARITIES],
@@ -53,6 +58,23 @@ export function GiglingListingsClient({ data, variant }: Props) {
     factions: [...GIGLING_FACTIONS],
     genders: [...GIGLING_GENDERS],
   })
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    setRefreshError(false)
+    try {
+      const res = await fetch(`/api/listings/giglings?variant=${variant}`)
+      if (!res.ok) { setRefreshError(true); return }
+      const fresh = (await res.json()) as GiglingListingsResponse
+      setListings(fresh.listings)
+      setEthUsd(fresh.ethUsd)
+      setLastUpdated(fresh.lastUpdated)
+    } catch {
+      setRefreshError(true)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const filteredListings = useMemo(
     () =>
@@ -65,7 +87,6 @@ export function GiglingListingsClient({ data, variant }: Props) {
             (g.gender === undefined || filters.genders.includes(g.gender))
           )
         }
-        // EGGS: filter by egg type only
         return g.eggType !== undefined && filters.eggTypes.includes(g.eggType)
       }),
     [listings, filters, variant],
@@ -91,9 +112,20 @@ export function GiglingListingsClient({ data, variant }: Props) {
           >
             {SUBTITLES[variant]}
           </p>
-          <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
-            Updated {lastUpdatedFormatted}
-          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
+              Updated {lastUpdatedFormatted}
+            </p>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1 font-bitcell text-[11px] uppercase tracking-[1.5px] transition-opacity disabled:opacity-40"
+              style={{ color: refreshError ? '#C32454' : '#02C7D7' }}
+            >
+              <ArrowClockwise size={12} weight="bold" className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? 'Refreshing...' : refreshError ? 'Failed — retry' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-2">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { ArrowClockwise } from '@phosphor-icons/react'
 import type { RomListingsResponse, Tier, Faction, MemoryMb } from '@/types/rom'
 import { TIERS, FACTIONS, MEMORY_OPTIONS } from '@/types/rom'
 import { calcEfficiency } from '@/lib/rom-calculations'
@@ -25,7 +26,11 @@ export interface ActiveFilters {
 }
 
 export function RomListingsClient({ data }: Props) {
-  const { listings, ethUsd, lastUpdated } = data
+  const [listings, setListings] = useState(data.listings)
+  const [ethUsd, setEthUsd] = useState(data.ethUsd)
+  const [lastUpdated, setLastUpdated] = useState(data.lastUpdated)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
 
   const [settings, setSettings] = useState<DisplaySettings>({
     linked: false,
@@ -37,6 +42,23 @@ export function RomListingsClient({ data }: Props) {
     tiers: [...TIERS],
     memories: [...MEMORY_OPTIONS],
   })
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    setRefreshError(false)
+    try {
+      const res = await fetch('/api/listings/roms')
+      if (!res.ok) { setRefreshError(true); return }
+      const fresh = (await res.json()) as RomListingsResponse
+      setListings(fresh.listings)
+      setEthUsd(fresh.ethUsd)
+      setLastUpdated(fresh.lastUpdated)
+    } catch {
+      setRefreshError(true)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const enrichedListings = useMemo(
     () =>
@@ -80,9 +102,20 @@ export function RomListingsClient({ data }: Props) {
             faction materials (shards and dust). There are 4 rarities of ROMs — Silver, Gold, Void
             and Giga — with different types of Memory that result in production output.
           </p>
-          <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
-            Updated {lastUpdatedFormatted}
-          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="font-bitcell text-[11px] uppercase tracking-[1.5px]" style={{ color: '#F5C563' }}>
+              Updated {lastUpdatedFormatted}
+            </p>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1 font-bitcell text-[11px] uppercase tracking-[1.5px] transition-opacity disabled:opacity-40"
+              style={{ color: refreshError ? '#C32454' : '#02C7D7' }}
+            >
+              <ArrowClockwise size={12} weight="bold" className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? 'Refreshing...' : refreshError ? 'Failed — retry' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
